@@ -1,14 +1,7 @@
 const std = @import("std");
 
 const Solver = struct {
-    /// The number of equations provided that constrain the output.
-    ///
-    /// A constraint looks like: 2x + 5y <= 6.
     constraints: u64,
-    /// The number of variables in each equation. This includes the objective
-    /// and the constraints.
-    ///
-    /// 2x + 5y has two variables.
     variables: u64,
     table: [][]f32,
 
@@ -38,16 +31,30 @@ const Solver = struct {
         return solver;
     }
 
-    fn initRandom(
+    fn randomize(
+        solver: *Solver,
         allocator: std.mem.Allocator,
         random: std.Random,
-        constraints: u64,
-        variables: u64,
-    ) !Solver {
-        _ = random;
+    ) !void {
+        // set random constraints
+        for (0..solver.constraints) |i| {
+            const coefficients = try allocator.alloc(f32, solver.variables);
+            defer allocator.free(coefficients);
 
-        const solver = try Solver.init(allocator, constraints, variables);
-        return solver;
+            for (coefficients) |*coef| {
+                coef.* = random.floatExp(f32) * 10_000;
+            }
+            const rhs_value = random.floatExp(f32) * 10_000;
+            solver.setConstraint(i, coefficients, rhs_value);
+        }
+
+        // set random objective
+        const coefficients = try allocator.alloc(f32, solver.variables);
+        defer allocator.free(coefficients);
+        for (coefficients) |*coef| {
+            coef.* = random.floatExp(f32) * 10_000;
+        }
+        solver.setObjective(coefficients);
     }
 
     fn deinit(
@@ -82,7 +89,7 @@ const Solver = struct {
         }
     }
 
-    fn solve(solver: *Solver) void {
+    fn solve(solver: *Solver) f32 {
         var maybe_pc: ?u64 = null;
         var maybe_pr: ?u64 = null;
         var min_ratio: ?f32 = null;
@@ -140,17 +147,7 @@ const Solver = struct {
             }
         }
 
-        for (0..solver.variables) |j| {
-            var value: f32 = 0;
-            for (0..solver.constraints) |i| {
-                if (solver.table[i][j] == 1) {
-                    value = solver.table[i][solver.num_cols - 1];
-                    break;
-                }
-            }
-            std.debug.print("x{d} = {d:.2}\n", .{ j + 1, value });
-        }
-        std.debug.print("optimal value: {d:.2}\n", .{solver.table[solver.num_rows - 1][solver.num_cols - 1]});
+        return solver.table[solver.num_rows - 1][solver.num_cols - 1];
     }
 
     fn dump(solver: *Solver, stream: anytype) !void {
@@ -170,12 +167,6 @@ const Solver = struct {
             }
             try stream.print("<= {d:.2}\n", .{row[solver.num_cols - 1]});
         }
-
-        try stream.writeAll("non-negativity: ");
-        for (0..solver.variables) |i| {
-            try stream.print("X{d} >= 0 ", .{i + 1});
-        }
-        try stream.writeAll("\n");
     }
 };
 
@@ -187,20 +178,14 @@ pub fn main() !void {
     var prng = std.Random.DefaultPrng.init(0);
     const random = prng.random();
 
-    var solver = try Solver.initRandom(allocator, random, 2, 2);
+    var solver = try Solver.init(allocator, 10_000, 10_000);
     defer solver.deinit(allocator);
 
-    // x + 2y <= 6
-    solver.setConstraint(0, &.{ 1, 2 }, 6);
+    try solver.randomize(allocator, random);
 
-    // 3x + 2y <= 12
-    solver.setConstraint(1, &.{ 3, 2 }, 12);
+    // const stdout = std.io.getStdOut().writer();
+    // try solver.dump(stdout);
 
-    // 3x + 5y
-    solver.setObjective(&.{ 3, 5 });
-
-    const stdout = std.io.getStdOut().writer();
-    try solver.dump(stdout);
-
-    solver.solve();
+    const result = solver.solve();
+    std.debug.print("optimal value: {d:.2}\n", .{result});
 }
