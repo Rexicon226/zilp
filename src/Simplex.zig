@@ -39,9 +39,9 @@ pub fn randomize(
         defer allocator.free(coefficients);
 
         for (coefficients) |*coef| {
-            coef.* = random.floatExp(f32) * 10_000;
+            coef.* = random.floatExp(f32) * 1_000;
         }
-        const rhs_value = random.floatExp(f32) * 10_000;
+        const rhs_value = random.floatExp(f32) * 1_000;
         solver.setConstraint(i, coefficients, rhs_value);
     }
 
@@ -49,7 +49,7 @@ pub fn randomize(
     const coefficients = try allocator.alloc(f32, solver.variables);
     defer allocator.free(coefficients);
     for (coefficients) |*coef| {
-        coef.* = random.floatExp(f32) * 10_000;
+        coef.* = random.floatExp(f32) * 1_000;
     }
     solver.setObjective(coefficients);
 }

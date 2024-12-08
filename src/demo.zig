@@ -4,21 +4,24 @@ const zilp = @import("zilp");
 const Simplex = zilp.Simplex;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    const allocator = std.heap.c_allocator;
 
-    var prng = std.Random.DefaultPrng.init(0);
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const input_length = try std.fmt.parseInt(u32, args[1], 10);
+
+    var prng = std.Random.DefaultPrng.init(10);
     const random = prng.random();
 
-    var solver = try Simplex.init(allocator, 10_000, 10_000);
+    var solver = try Simplex.init(allocator, input_length, 100);
     defer solver.deinit(allocator);
 
     try solver.randomize(allocator, random);
 
-    // const stdout = std.io.getStdOut().writer();
-    // try solver.dump(stdout);
+    var timer = try std.time.Timer.start();
+    std.mem.doNotOptimizeAway(solver.solve());
+    const time_spent = timer.lap();
 
-    const result = solver.solve();
-    std.debug.print("optimal value: {d:.2}\n", .{result});
+    std.debug.print("{}", .{time_spent});
 }
